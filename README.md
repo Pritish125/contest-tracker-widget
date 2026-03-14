@@ -1,6 +1,6 @@
 # ◈ DSA Contest Tracker
 
-> A live desktop widget for **Codeforces**, **LeetCode** & **AtCoder** — sits right on your Windows desktop behind your icons, no browser tab needed.
+> A live desktop widget for **Codeforces**, **LeetCode** & **AtCoder** — sits on your Windows desktop behind your icons, lives in your system tray, and launches with a single `contests` command.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat-square&logo=python)
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?style=flat-square&logo=windows)
@@ -8,56 +8,89 @@
 
 ---
 
-## What Does It Do?
+## Features
 
-- 🔴 Shows **live contests** with a real-time "ends in" countdown
-- 🟣 Shows **upcoming contests** sorted by start time with "starts in" countdown
-- 🖱️ **Click any contest** to open it directly in your browser
-- 🖥️ **Embeds behind desktop icons** using the Win32 WorkerW trick (like Rainmeter)
-- ⏻ **One-click startup toggle** — launches silently on every Windows boot
-- ⟳ **Auto-refreshes** every 5 minutes
-- ▲▼ **Scrollable list** with arrow buttons + mouse wheel
-- ─ **Collapsible** to save screen space
-- Never floats over your open apps — stays on the desktop only
+| | Feature | Description |
+|---|---------|-------------|
+| 🔴 | Live Contests | Highlighted in green with a real-time "ends in" countdown |
+| 🟣 | Upcoming Contests | Sorted by start time with "starts in" countdown |
+| 🖱️ | Clickable Cards | Click any contest to open it directly in your browser |
+| 🖥️ | Desktop Embed | Sits behind desktop icons using the Win32 WorkerW trick |
+| 🔔 | System Tray | Lives in your taskbar tray — click to show/hide |
+| ⌨️ | `contests` Command | Type it in any terminal to launch the widget |
+| ⏻ | Auto Startup | One-click toggle to launch silently on every Windows boot |
+| ⟳ | Auto Refresh | Fetches fresh data every 5 minutes |
+| ▲▼ | Scrollable | Arrow buttons + mouse wheel + scrollbar |
+| ─ | Collapsible | Hide/show the list to save screen space |
+
+> The widget stays on the desktop only — it **never hovers over your open apps**.
 
 ---
 
 ## Requirements
 
 - **Python 3.8+** — [download here](https://www.python.org/downloads/)
-- **pywin32** — for desktop embedding
+- **pywin32** — desktop embedding + startup registry
+- **pystray** — system tray icon
+- **Pillow** — tray icon rendering
+
+Install everything at once:
 
 ```bash
-pip install pywin32
+pip install pywin32 pystray pillow
 ```
 
-> `tkinter` comes built-in with Python on Windows — no extra install needed.
+> `tkinter` is built into Python on Windows — no extra install needed.
+
+---
+
+## Project Structure
+
+```
+ContestTracker/
+├── contest_widget.py     ← the entire widget (single file)
+├── install_command.py    ← one-time setup for the 'contests' command
+├── README.md             ← this file
+└── README.docx           ← formatted version of this README
+```
 
 ---
 
 ## Installation
 
-### 1. Download the script
-
-Save `contest_widget.py` somewhere on your PC:
-
-```
-C:\Users\YourName\Desktop\ContestTracker\contest_widget.py
-```
-
-### 2. Install the dependency
+### Step 1 — Install dependencies
 
 ```bash
-pip install pywin32
+pip install pywin32 pystray pillow
 ```
 
-### 3. Run it
+### Step 2 — Run the widget
 
 ```bash
 python contest_widget.py
 ```
 
-The widget will appear in the **bottom-right corner** of your screen, embedded behind your desktop icons.
+The widget appears in the **bottom-right corner**, embedded behind your desktop icons, with a `◈` tray icon in the taskbar.
+
+### Step 3 — Set up the `contests` command *(optional but recommended)*
+
+```bash
+python install_command.py
+```
+
+Open a **new terminal** and just type:
+
+```bash
+contests
+```
+
+The widget launches instantly. Works in CMD, PowerShell, and Windows Terminal.
+
+To remove the command later:
+
+```bash
+python install_command.py --uninstall
+```
 
 ---
 
@@ -65,56 +98,63 @@ The widget will appear in the **bottom-right corner** of your screen, embedded b
 
 ### Method 1 — In-App Toggle ✅ Recommended
 
-While the widget is running:
-
-1. Find the **⏻ button** in the header bar
+1. Find the **⏻ button** in the widget header
 2. Click it — it turns **green** and shows `✓ Added to startup`
-3. Done! The widget will now launch silently on every boot using `pythonw.exe` (no console window)
-4. Click ⏻ again to remove it from startup
+3. The widget now launches silently on every boot via `pythonw.exe` (no console window)
+4. Click **⏻** again anytime to remove it
 
-> Under the hood, this writes to:
-> `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+> Writes to `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` in the registry.
 
----
+### Method 2 — Startup Folder *(manual fallback)*
 
-### Method 2 — Startup Folder (Manual Fallback)
-
-If Method 1 doesn't work:
-
-**Step 1:** Create a file called `start_tracker.bat` with this content:
+**Step 1:** Create `start_tracker.bat`:
 
 ```bat
 @echo off
 start "" pythonw "C:\full\path\to\contest_widget.py"
 ```
 
-**Step 2:** Press `Win + R`, type the following, and hit Enter:
+**Step 2:** Press `Win + R`, type `shell:startup`, hit Enter.
 
-```
-shell:startup
-```
-
-**Step 3:** Move `start_tracker.bat` into that folder. Windows will run it on every login.
+**Step 3:** Drop `start_tracker.bat` into that folder. Done.
 
 ---
 
-## Using the Widget
+## System Tray
+
+After launching, a `◈` icon appears in your system tray (bottom-right near the clock).
+
+> If you don't see it, click the **^** arrow in the taskbar to find hidden tray icons, then drag the `◈` icon out to always show it.
+
+| Action | Result |
+|--------|--------|
+| Left-click tray icon | Show / Hide the widget |
+| Right-click → Show / Hide | Toggle visibility |
+| Right-click → Refresh | Fetch latest contests |
+| Right-click → Exit | Close the widget completely |
+| **▼** button in header | Hide widget to tray |
+
+---
+
+## Widget Controls
 
 ### Header Buttons
 
 | Button | Action |
 |--------|--------|
 | `⟳` | Manually refresh contest data |
-| `⏻` | Toggle auto-launch on boot (green = enabled) |
+| `⏻` | Toggle auto-launch on boot (green = on) |
+| `▼` | Hide to system tray |
 | `─` | Collapse / expand the contest list |
-| `×` | Close the widget |
+| `×` | Exit the widget completely |
 
 ### Scrolling
 
-- **▲ / ▼** buttons — scroll 3 cards at a time
-- **Mouse wheel** — scroll naturally while hovering
-- **⤒ top** — jump back to the top instantly
-- Thin scrollbar on the right edge shows your position
+| Method | Action |
+|--------|--------|
+| **▲ / ▼** buttons | Scroll 3 cards at a time |
+| Mouse wheel | Scroll naturally while hovering |
+| **⤒ top** button | Jump to the top instantly |
 
 ### Opening a Contest
 
@@ -124,61 +164,58 @@ Click **anywhere on a contest card** — the name, badge, date, or countdown —
 
 ## How Desktop Embedding Works
 
-The widget uses a Windows trick to sit *behind* your desktop icons:
+Uses a Windows trick to sit *behind* your desktop icons (same method as Rainmeter):
 
-1. Sends message `0x052C` to the `Progman` process → Windows spawns a hidden `WorkerW` layer
-2. Calls `SetParent()` to re-parent the tkinter window into that `WorkerW` layer
-3. Result: widget appears above your wallpaper but **below** your desktop icons and all other apps
+1. Sends message `0x052C` to `Progman` → Windows spawns a hidden `WorkerW` layer
+2. Calls `SetParent()` to move the widget window into that `WorkerW` layer
+3. Widget appears above wallpaper but **below** desktop icons and all apps
 
-> **If `pywin32` is not installed:** the widget falls back to a regular floating window (no desktop embedding, but everything else still works). Install `pywin32` for the full experience.
+> **No pywin32?** Falls back to a regular draggable window — everything else still works.
 
 ---
 
 ## Troubleshooting
 
 **Widget won't start**
-- Make sure Python 3.8+ is in your PATH: `python --version`
-- Run from terminal to see errors: `python contest_widget.py`
-- Check pywin32 is installed: `pip install pywin32`
+```bash
+python contest_widget.py   # run from terminal to see the full error
+python --version           # confirm Python 3.8+
+pip install pywin32 pystray pillow
+```
+
+**Tray icon not showing**
+- Click the `^` arrow near the clock — it may be hidden in the overflow tray
+- Drag the `◈` icon out to pin it to the visible area
+- Check for a `tray_error.log` file next to `contest_widget.py` — it logs tray startup errors
 
 **No contests showing**
 - Check your internet connection
 - Click `⟳` to manually refresh
-- Some APIs rate-limit requests — wait a minute and retry
+- APIs may rate-limit — wait a minute and retry
 
-**Clicking contests doesn't open browser**
-- Make sure a default browser is set in Windows Settings → Apps → Default apps
+**`contests` command not found**
+- Open a **new** terminal — existing ones won't pick up PATH changes
+- Run `python install_command.py` again to verify the install
 
-**Widget appears on top of windows instead of behind icons**
-- Try running as Administrator
+**Widget appears on top of other windows**
+- Desktop embedding failed — try running as Administrator
 - Some custom Windows shells don't support the WorkerW trick
 
 **Auto-startup not working**
 - Use Method 2 (Startup Folder) as a reliable fallback
-- Verify the registry key: `Win+R` → `regedit` → navigate to `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+- Check: `Win+R` → `regedit` → `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 
 ---
 
 ## APIs Used
 
-| Platform | Endpoint |
-|----------|----------|
-| Codeforces | `codeforces.com/api/contest.list` |
-| LeetCode | `leetcode.com/graphql` — `allContests` query |
-| AtCoder | `kenkoooo.com/atcoder/resources/contests.json` |
+| Platform | Endpoint | Auth |
+|----------|----------|------|
+| Codeforces | `codeforces.com/api/contest.list` | None |
+| LeetCode | `leetcode.com/graphql` — `allContests` | None |
+| AtCoder | `kenkoooo.com/atcoder/resources/contests.json` | None |
 
-All APIs are free and public — no API keys needed.
-
----
-
-## Project Structure
-
-```
-ContestTracker/
-├── contest_widget.py   ← the entire widget, single file
-├── README.md           ← this file
-└── README.docx         ← formatted version of this README
-```
+All APIs are free and public — no API keys required.
 
 ---
 

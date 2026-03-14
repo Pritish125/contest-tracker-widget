@@ -2,8 +2,9 @@
 DSA Contest Tracker — Desktop Embedded Widget
 Sits behind desktop icons using the Win32 WorkerW trick.
 
-Requirements:  pip install pywin32
+Requirements:  pip install pywin32 pystray pillow
 Run:           python contest_widget.py
+               OR type 'contests' in any terminal (after running install_command.py)
 """
 
 import tkinter as tk
@@ -13,13 +14,11 @@ import threading, time, urllib.request, json, datetime, webbrowser, ctypes, sys,
 # ── Auto-startup (Windows Registry) ──────────────────────────────────────────
 
 def register_startup():
-    """Add this script to HKCU Run so it starts with Windows."""
     try:
         import winreg
-        key  = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                              r"Software\Microsoft\Windows\CurrentVersion\Run",
-                              0, winreg.KEY_SET_VALUE)
-        # Use pythonw.exe so no console window appears on startup
+        key     = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                 r"Software\Microsoft\Windows\CurrentVersion\Run",
+                                 0, winreg.KEY_SET_VALUE)
         pythonw = sys.executable.replace("python.exe", "pythonw.exe")
         script  = os.path.abspath(__file__)
         winreg.SetValueEx(key, "ContestTracker", 0, winreg.REG_SZ,
@@ -57,7 +56,7 @@ def remove_startup():
 # ── Win32 desktop embedding ───────────────────────────────────────────────────
 
 try:
-    user32 = ctypes.windll.user32
+    user32          = ctypes.windll.user32
     EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
 
     def _embed_behind_desktop(hwnd):
@@ -82,6 +81,32 @@ try:
 except Exception:
     WIN32_OK = False
 
+# ── System tray ───────────────────────────────────────────────────────────────
+
+def _make_tray_icon():
+    """Draw a simple ◈ icon in memory using Pillow."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        img  = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        # Dark rounded background
+        draw.rounded_rectangle([2, 2, 61, 61], radius=12, fill=(13, 15, 20, 230))
+        # Coloured dots — CF red, LC orange, AC blue
+        draw.ellipse([10, 10, 20, 20], fill=(255, 85, 85))
+        draw.ellipse([27, 10, 37, 20], fill=(255, 161, 22))
+        draw.ellipse([44, 10, 54, 20], fill=(77, 159, 255))
+        # Thin accent line at bottom
+        draw.rectangle([10, 46, 54, 48], fill=(123, 97, 255))
+        return img
+    except ImportError:
+        # Pillow not available — return a plain coloured square
+        try:
+            from PIL import Image
+            img = Image.new("RGBA", (64, 64), (13, 15, 20, 255))
+            return img
+        except Exception:
+            return None
+
 # ── API helpers ───────────────────────────────────────────────────────────────
 
 def fetch_url(url, timeout=8):
@@ -98,14 +123,16 @@ def get_codeforces():
     if not data or data.get("status") != "OK":
         return out
     for c in data["result"]:
-        phase = c.get("phase","")
+        phase = c.get("phase", "")
         start = c.get("startTimeSeconds", 0)
         end   = start + c.get("durationSeconds", 0)
         url   = f"https://codeforces.com/contest/{c['id']}"
         if phase == "CODING":
-            out.append({"platform":"CF","name":c["name"],"status":"LIVE","start":start,"end":end,"url":url})
+            out.append({"platform":"CF","name":c["name"],"status":"LIVE",
+                        "start":start,"end":end,"url":url})
         elif phase == "BEFORE" and start > now:
-            out.append({"platform":"CF","name":c["name"],"status":"UPCOMING","start":start,"end":end,"url":url})
+            out.append({"platform":"CF","name":c["name"],"status":"UPCOMING",
+                        "start":start,"end":end,"url":url})
     return out
 
 def get_atcoder():
@@ -118,9 +145,11 @@ def get_atcoder():
             e = s + c.get("duration_second", 0)
             u = f"https://atcoder.jp/contests/{c['id']}"
             if s <= now <= e:
-                out.append({"platform":"AC","name":c["title"],"status":"LIVE","start":s,"end":e,"url":u})
+                out.append({"platform":"AC","name":c["title"],"status":"LIVE",
+                            "start":s,"end":e,"url":u})
             elif s > now:
-                out.append({"platform":"AC","name":c["title"],"status":"UPCOMING","start":s,"end":e,"url":u})
+                out.append({"platform":"AC","name":c["title"],"status":"UPCOMING",
+                            "start":s,"end":e,"url":u})
         except Exception:
             pass
     return out
@@ -128,21 +157,24 @@ def get_atcoder():
 def get_leetcode():
     q = json.dumps({"query":"{ allContests { title titleSlug startTime duration } }"}).encode()
     try:
-        req = urllib.request.Request("https://leetcode.com/graphql", data=q,
+        req = urllib.request.Request(
+            "https://leetcode.com/graphql", data=q,
             headers={"Content-Type":"application/json","User-Agent":"Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode())
     except Exception:
         return []
     out, now = [], time.time()
-    for c in data.get("data",{}).get("allContests",[]):
+    for c in data.get("data", {}).get("allContests", []):
         s = c.get("startTime", 0)
         e = s + c.get("duration", 0) * 60
         u = f"https://leetcode.com/contest/{c['titleSlug']}"
         if s <= now <= e:
-            out.append({"platform":"LC","name":c["title"],"status":"LIVE","start":s,"end":e,"url":u})
+            out.append({"platform":"LC","name":c["title"],"status":"LIVE",
+                        "start":s,"end":e,"url":u})
         elif s > now:
-            out.append({"platform":"LC","name":c["title"],"status":"UPCOMING","start":s,"end":e,"url":u})
+            out.append({"platform":"LC","name":c["title"],"status":"UPCOMING",
+                        "start":s,"end":e,"url":u})
     return out
 
 def fmt_cd(ts):
@@ -155,7 +187,6 @@ def fmt_cd(ts):
     return f"{h:02d}h {m:02d}m" if h > 0 else f"{m:02d}m {s:02d}s"
 
 def fmt_dt(ts):
-    """Readable date: Mon, Mar 17  09:30"""
     return datetime.datetime.fromtimestamp(ts).strftime("%a, %b %d  %H:%M")
 
 # ── Theme ─────────────────────────────────────────────────────────────────────
@@ -181,18 +212,19 @@ class ContestWidget:
         self.root.configure(bg=BG)
         self.root.attributes("-alpha", 0.95)
 
-        self.contests   = []
-        self._collapsed = False
+        self.contests    = []
+        self._collapsed  = False
+        self._visible    = True
         self._dx = self._dy = 0
+        self._tray       = None
 
-        # Fonts — larger and clearer
         self.f_name   = tkfont.Font(family="Segoe UI", size=10, weight="bold")
         self.f_meta   = tkfont.Font(family="Segoe UI", size=9)
         self.f_cd     = tkfont.Font(family="Consolas", size=10, weight="bold")
-        self.f_badge  = tkfont.Font(family="Segoe UI",  size=8, weight="bold")
-        self.f_hdr    = tkfont.Font(family="Segoe UI",  size=10, weight="bold")
-        self.f_status = tkfont.Font(family="Segoe UI",  size=8)
-        self.f_sec    = tkfont.Font(family="Segoe UI",  size=8, weight="bold")
+        self.f_badge  = tkfont.Font(family="Segoe UI", size=8,  weight="bold")
+        self.f_hdr    = tkfont.Font(family="Segoe UI", size=10, weight="bold")
+        self.f_status = tkfont.Font(family="Segoe UI", size=8)
+        self.f_sec    = tkfont.Font(family="Segoe UI", size=8,  weight="bold")
 
         self._build_ui()
 
@@ -201,16 +233,76 @@ class ContestWidget:
         self.root.geometry(f"320x600+{sw-340}+{sh-640}")
 
         self.root.after(300, self._try_embed)
+        self.root.after(100, self._start_tray)   # tray starts after window ready
         self._refresh_data()
         self.root.mainloop()
 
-    # ── Embed ─────────────────────────────────────────────────────────────────
+    # ── System tray ───────────────────────────────────────────────────────────
+    def _start_tray(self):
+        # Run in a thread so import/startup never blocks tkinter
+        threading.Thread(target=self._tray_thread, daemon=True).start()
+
+    def _tray_thread(self):
+        try:
+            import pystray
+            from PIL import Image, ImageDraw
+
+            # Build icon image
+            img  = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            draw.rounded_rectangle([2, 2, 61, 61], radius=12, fill=(13, 15, 20, 230))
+            draw.ellipse([10, 10, 22, 22], fill=(255, 85,  85))
+            draw.ellipse([27, 10, 39, 22], fill=(255, 161, 22))
+            draw.ellipse([44, 10, 56, 22], fill=(77,  159, 255))
+            draw.rectangle([10, 44, 54, 47], fill=(123, 97, 255))
+
+            menu = pystray.Menu(
+                pystray.MenuItem("Show / Hide", self._tray_toggle, default=True),
+                pystray.MenuItem("Refresh",     lambda icon, item: self.root.after(0, self._manual_refresh)),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Exit",        lambda icon, item: self._tray_exit()),
+            )
+            self._tray = pystray.Icon("ContestTracker", img, "◈ Contest Tracker", menu)
+            self._tray.run()          # blocks this thread until .stop() is called
+        except Exception as e:
+            # Write to a log so we can see what went wrong
+            try:
+                import traceback
+                with open("tray_error.log", "w") as f:
+                    traceback.print_exc(file=f)
+            except Exception:
+                pass
+
+    def _tray_toggle(self, icon=None, item=None):
+        """Called from tray thread — must schedule on tkinter main thread."""
+        self.root.after(0, self._toggle_visibility)
+
+    def _tray_exit(self):
+        if self._tray:
+            self._tray.stop()
+        self.root.after(0, self.root.destroy)
+
+    def _toggle_visibility(self):
+        if self._visible:
+            self.root.withdraw()      # hide window
+            self._visible = False
+        else:
+            self.root.deiconify()     # show window
+            self._visible = True
+            # Re-embed after showing if needed
+            if WIN32_OK:
+                hwnd = ctypes.windll.user32.FindWindowW(None, "Contest Tracker") \
+                       or self.root.winfo_id()
+                _embed_behind_desktop(hwnd)
+
+    # ── Desktop embed ─────────────────────────────────────────────────────────
     def _try_embed(self):
         if not WIN32_OK:
             self._enable_drag()
             self._set_status("pywin32 missing — floating mode")
             return
-        hwnd = ctypes.windll.user32.FindWindowW(None, "Contest Tracker") or self.root.winfo_id()
+        hwnd = ctypes.windll.user32.FindWindowW(None, "Contest Tracker") \
+               or self.root.winfo_id()
         if _embed_behind_desktop(hwnd):
             self._set_status("✓ Embedded in desktop")
         else:
@@ -224,7 +316,7 @@ class ContestWidget:
         inner = tk.Frame(outer, bg=BG)
         inner.pack(fill="both", expand=True)
 
-        # ── Header ────────────────────────────────────────────────────────────
+        # Header
         hdr = tk.Frame(inner, bg=SURFACE, height=36)
         hdr.pack(fill="x")
         hdr.pack_propagate(False)
@@ -242,34 +334,34 @@ class ContestWidget:
 
         bk = dict(font=self.f_badge, bg=SURFACE, bd=0, cursor="hand2",
                   activebackground=BORDER, padx=5, pady=3)
-        tk.Button(hdr, text="×", fg="#FF5F5F", command=self.root.destroy, **bk).pack(side="right", padx=3)
+        tk.Button(hdr, text="×", fg="#FF5F5F", command=self._tray_exit,    **bk).pack(side="right", padx=3)
         tk.Button(hdr, text="─", fg=DIM,       command=self._toggle_collapse, **bk).pack(side="right")
+        tk.Button(hdr, text="▼", fg=DIM,       command=self._toggle_visibility,
+                  activebackground=BORDER, font=self.f_badge, bg=SURFACE,
+                  bd=0, cursor="hand2", padx=5, pady=3).pack(side="right")  # hide to tray
 
-        # Startup toggle button
         self._startup_on = is_registered_startup()
-        self._sb_text = tk.StringVar(value="⏻" if self._startup_on else "⏻")
-        self._sbtn = tk.Button(hdr, textvariable=self._sb_text,
+        self._sbtn = tk.Button(hdr, text="⏻",
                                fg=LIVE_CLR if self._startup_on else DIM,
                                command=self._toggle_startup, **bk)
         self._sbtn.pack(side="right")
 
-        self.rbtn = tk.Button(hdr, text="⟳", fg=ACCENT, command=self._manual_refresh, **bk)
+        self.rbtn = tk.Button(hdr, text="⟳", fg=ACCENT,
+                              command=self._manual_refresh, **bk)
         self.rbtn.pack(side="right")
 
-        # ── Body frame (collapsible) ──────────────────────────────────────────
+        # Body (collapsible)
         self._body_frame = tk.Frame(inner, bg=BG)
         self._body_frame.pack(fill="both", expand=True)
         body = self._body_frame
 
-        # ── Status bar ────────────────────────────────────────────────────────
         self.svar = tk.StringVar(value="Fetching contests…")
         tk.Label(body, textvariable=self.svar, font=self.f_status,
                  fg=DIM, bg=BG, pady=3, anchor="w").pack(fill="x", padx=10)
 
-        # ── Separator ─────────────────────────────────────────────────────────
         tk.Canvas(body, height=1, bg=BORDER, highlightthickness=0).pack(fill="x")
 
-        # ── Scroll arrow buttons ───────────────────────────────────────────────
+        # Scroll nav bar
         nav = tk.Frame(body, bg=SURFACE, height=26)
         nav.pack(fill="x")
         nav.pack_propagate(False)
@@ -286,7 +378,7 @@ class ContestWidget:
                   activebackground=BORDER, activeforeground=TEXT,
                   command=lambda: self._canvas.yview_moveto(0)).pack(side="right", padx=6)
 
-        # ── Scrollable canvas ─────────────────────────────────────────────────
+        # Scrollable canvas
         wrap = tk.Frame(body, bg=BG)
         wrap.pack(fill="both", expand=True)
 
@@ -302,14 +394,10 @@ class ContestWidget:
         self.lf = tk.Frame(self._canvas, bg=BG)
         self._win_id = self._canvas.create_window((0, 0), window=self.lf, anchor="nw")
 
-        def _on_canvas_resize(e):
-            self._canvas.itemconfig(self._win_id, width=e.width)
-        self._canvas.bind("<Configure>", _on_canvas_resize)
-
-        def _on_frame_resize(e):
-            self._canvas.configure(scrollregion=self._canvas.bbox("all"))
-        self.lf.bind("<Configure>", _on_frame_resize)
-
+        self._canvas.bind("<Configure>",
+            lambda e: self._canvas.itemconfig(self._win_id, width=e.width))
+        self.lf.bind("<Configure>",
+            lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
         self._canvas.bind_all("<MouseWheel>",
             lambda e: self._canvas.yview_scroll(int(-e.delta / 60), "units"))
 
@@ -329,7 +417,7 @@ class ContestWidget:
             self._sbtn.config(fg=LIVE_CLR)
             self._set_status("✓ Added to startup" if ok else "Failed to add startup")
 
-    # ── Drag (floating fallback only) ─────────────────────────────────────────
+    # ── Drag (floating fallback) ──────────────────────────────────────────────
     def _enable_drag(self):
         self._hdr.bind("<ButtonPress-1>", lambda e: self._ds(e))
         self._hdr.bind("<B1-Motion>",     lambda e: self._dm(e))
@@ -359,9 +447,9 @@ class ContestWidget:
     def _refresh_data(self):
         def work():
             all_c = get_codeforces() + get_leetcode() + get_atcoder()
-            all_c.sort(key=lambda x: (0 if x["status"]=="LIVE" else 1, x["start"]))
-            live = [c for c in all_c if c["status"]=="LIVE"]
-            up   = [c for c in all_c if c["status"]=="UPCOMING"][:20]
+            all_c.sort(key=lambda x: (0 if x["status"] == "LIVE" else 1, x["start"]))
+            live = [c for c in all_c if c["status"] == "LIVE"]
+            up   = [c for c in all_c if c["status"] == "UPCOMING"][:20]
             self.contests = live + up
             self.root.after(0, self._render)
         threading.Thread(target=work, daemon=True).start()
@@ -381,16 +469,14 @@ class ContestWidget:
                      font=self.f_meta, fg=DIM, bg=BG).pack(pady=30)
             self.svar.set("Updated " + datetime.datetime.now().strftime("%H:%M:%S"))
             return
-
-        live = [c for c in self.contests if c["status"]=="LIVE"]
-        up   = [c for c in self.contests if c["status"]=="UPCOMING"]
+        live = [c for c in self.contests if c["status"] == "LIVE"]
+        up   = [c for c in self.contests if c["status"] == "UPCOMING"]
         if live:
             self._sec("● LIVE NOW")
             for c in live: self._row(c)
         if up:
             self._sec("◎ UPCOMING")
             for c in up: self._row(c)
-
         self.svar.set("↻ " + datetime.datetime.now().strftime("%H:%M:%S"))
         self.rbtn.config(fg=ACCENT)
 
@@ -406,40 +492,31 @@ class ContestWidget:
         live = c["status"] == "LIVE"
         rb   = LIVE_BG if live else SURFACE
 
-        # Outer card
-        card = tk.Frame(self.lf, bg=rb, pady=8, padx=0, cursor="hand2")
+        card = tk.Frame(self.lf, bg=rb, pady=8, cursor="hand2")
         card.pack(fill="x", pady=3)
 
-        # Left accent stripe
         tk.Frame(card, width=4, bg=PC[c["platform"]]).pack(side="left", fill="y")
 
         body = tk.Frame(card, bg=rb)
         body.pack(side="left", fill="both", expand=True, padx=10)
 
-        # ── Row 1: badge + contest name ───────────────────────────────────────
         top = tk.Frame(body, bg=rb)
         top.pack(fill="x")
-
         tk.Label(top, text=f" {c['platform']} ", font=self.f_badge,
-                 fg="white", bg=PC[c["platform"]], padx=2).pack(side="left", padx=(0,8))
-
+                 fg="white", bg=PC[c["platform"]], padx=2).pack(side="left", padx=(0, 8))
         nm = c["name"][:28] + "…" if len(c["name"]) > 30 else c["name"]
         tk.Label(top, text=nm, font=self.f_name,
-                 fg=LIVE_CLR if live else TEXT, bg=rb,
-                 anchor="w").pack(side="left", fill="x", expand=True)
+                 fg=LIVE_CLR if live else TEXT, bg=rb, anchor="w").pack(
+            side="left", fill="x", expand=True)
 
-        # ── Row 2: date ───────────────────────────────────────────────────────
         tk.Label(body, text=fmt_dt(c["start"]), font=self.f_meta,
                  fg=WARN if live else DIM, bg=rb, anchor="w").pack(fill="x", pady=(3, 0))
 
-        # ── Row 3: countdown ──────────────────────────────────────────────────
         cd_row = tk.Frame(body, bg=rb)
         cd_row.pack(fill="x", pady=(2, 0))
-
         lbl_txt = "⏱ ends in" if live else "⏳ starts in"
         ts      = c["end"] if live else c["start"]
         clr     = LIVE_CLR if live else ACCENT
-
         tk.Label(cd_row, text=lbl_txt, font=self.f_meta, fg=DIM, bg=rb).pack(side="left")
         cd = tk.Label(cd_row, text=f"  {fmt_cd(ts)}", font=self.f_cd, fg=clr, bg=rb)
         cd.pack(side="left")
