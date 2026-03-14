@@ -207,16 +207,13 @@ class ContestWidget:
     # ── Embed ─────────────────────────────────────────────────────────────────
     def _try_embed(self):
         if not WIN32_OK:
-            self.root.attributes("-topmost", True)
             self._enable_drag()
             self._set_status("pywin32 missing — floating mode")
             return
         hwnd = ctypes.windll.user32.FindWindowW(None, "Contest Tracker") or self.root.winfo_id()
         if _embed_behind_desktop(hwnd):
-            self.root.attributes("-topmost", False)
             self._set_status("✓ Embedded in desktop")
         else:
-            self.root.attributes("-topmost", True)
             self._enable_drag()
             self._set_status("Embed failed — floating mode")
 
